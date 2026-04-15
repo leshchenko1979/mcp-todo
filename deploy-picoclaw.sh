@@ -11,13 +11,14 @@ fi
 HOST="${REMOTE_HOST_IP:?missing REMOTE_HOST_IP}"
 USER="${REMOTE_USER:-root}"
 KEY="${SSH_KEY:-~/.ssh/id_ed25519}"
+DEPLOY_PATH="${DEPLOY_PATH:-/usr/local/bin/mcp-todo.js}"
 
-echo "=== Deploying mcp-todo to $USER@$HOST ==="
+echo "=== Deploying mcp-todo to $USER@$HOST:$DEPLOY_PATH ==="
 
 # Copy script
-scp -i "$KEY" "$SCRIPT_DIR/mcp-todo.js" "$USER@$HOST:/usr/local/bin/mcp-todo.js"
-ssh -i "$KEY" "$USER@$HOST" "chmod +x /usr/local/bin/mcp-todo.js"
-echo "  + Script copied to /usr/local/bin/mcp-todo.js"
+scp -i "$KEY" "$SCRIPT_DIR/mcp-todo.js" "$USER@$HOST:$DEPLOY_PATH"
+ssh -i "$KEY" "$USER@$HOST" "chmod +x $DEPLOY_PATH"
+echo "  + Script copied to $DEPLOY_PATH"
 
 # Ensure picoclaw config has the todo server
 ssh -i "$KEY" "$USER@$HOST" bash -se << 'EOF'
@@ -28,7 +29,7 @@ TMP_CONFIG="/tmp/picoclaw_config_new.json"
 if jq -e '.tools.mcp.servers.todo' "$CONFIG" > /dev/null 2>&1; then
   echo "  + todo server already in picoclaw config"
 else
-  jq '.tools.mcp.servers.todo = { enabled: true, command: "node", args: ["/usr/local/bin/mcp-todo.js"] }' \
+  jq --arg path "$DEPLOY_PATH" '.tools.mcp.servers.todo = { enabled: true, command: "node", args: [$path] }' \
     "$CONFIG" > "$TMP_CONFIG" && mv "$TMP_CONFIG" "$CONFIG"
   chmod 600 "$CONFIG"
   echo "  + Added todo server to picoclaw config"

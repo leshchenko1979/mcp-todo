@@ -38,13 +38,13 @@ Errors only happen when the ID genuinely doesn't exist (`not_found`).
 
 ```bash
 cp .env.example .env
-# edit .env with your Picoclaw server IP
+# edit .env with your Picoclaw server IP and DEPLOY_PATH
 ./deploy-picoclaw.sh
 ```
 
 ## What deploy does
 
-1. Copies `mcp-todo.js` to `/usr/local/bin/mcp-todo.js` on the remote
+1. Copies `mcp-todo.js` to `$DEPLOY_PATH` on the remote (default: `/usr/local/bin/mcp-todo.js`)
 2. Adds the server entry to Picoclaw's `tools.mcp.servers` config (safe to run repeatedly)
 3. Restarts Picoclaw
 
@@ -58,7 +58,7 @@ cp .env.example .env
         "todo": {
           "enabled": true,
           "command": "node",
-          "args": ["/usr/local/bin/mcp-todo.js"]
+          "args": ["$DEPLOY_PATH"]
         }
       }
     }

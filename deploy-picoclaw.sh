@@ -5,12 +5,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load env
 if [[ -f "$SCRIPT_DIR/.env" ]]; then
-  export "$(grep -v '^#' "$SCRIPT_DIR/.env" | xargs)"
+  set -a
+  source "$SCRIPT_DIR/.env"
+  set +a
 fi
 
 HOST="${REMOTE_HOST_IP:?missing REMOTE_HOST_IP}"
 USER="${REMOTE_USER:-root}"
-KEY="${SSH_KEY:-~/.ssh/id_ed25519}"
+KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519}"
 DEPLOY_PATH="${DEPLOY_PATH:-/usr/local/bin/mcp-todo.js}"
 
 echo "=== Deploying mcp-todo to $USER@$HOST:$DEPLOY_PATH ==="

@@ -61,6 +61,7 @@ function handleRequest(req) {
       const todo = todoStore.find(t => t.id === args.id);
       if (!todo) return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(false, { error: 'not_found' })) }] }));
       todo.inProgress = true;
+      todo.done = false;
       return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(true, { todo })) }] }));
     }
 

@@ -1,40 +1,28 @@
 # mcp-todo
 
-Zero-dependency MCP todo server for [Picoclaw](https://github.com/sipeed/picoclaw). In-memory only — todos are lost on restart.
+A persistent scratch-pad for AI agents. In-memory todo list served over MCP — no storage, no setup, no dependencies.
 
-Designed for the **agent's own use** — to track its state during long-running tasks. Not a user-facing UI.
+**For the agent, not the user.** The agent creates todos to track its own state during complex or long-running tasks. The user never sees or manages this list.
 
-## Quick Start
+## Benefits
 
-```bash
-cp .env.example .env
-# edit .env with your server details
-./deploy.sh
-```
+- **Zero footprint** — pure Node.js, no npm packages, no database
+- **Agent-safe mutations** — `complete_todo` and `remove_todo` are idempotent. Calling them on already-done items returns success, not an error. The agent never needs error recovery logic
+- **Always synchronized** — every response includes the full todo list. No need for the agent to make a separate `list_todos` call after each mutation
+- **Designed for retries** — if an agent iteration fails mid-task, todos survive. If the whole process restarts, todos are fresh (intentional — the agent should re-plan anyway)
 
 ## Tools
 
-| Tool | Description |
+| Tool | When to use |
 |------|-------------|
-| `add_todo` | Record a step, reminder, or sub-task |
-| `start_todo` | Mark a todo as in-progress |
-| `complete_todo` | Mark a todo as done |
-| `remove_todo` | Delete a todo |
-| `clear_todos` | Reset the list |
-| `list_todos` | View all todos and their states |
+| `add_todo` | Agent needs to remember a step, sub-task, or reminder |
+| `start_todo` | Agent begins working on a tracked item |
+| `complete_todo` | Agent finishes an item |
+| `remove_todo` | Agent discards a no-longer-needed item |
+| `clear_todos` | Agent resets the list after completing everything |
+| `list_todos` | Agent reviews current state (usually called after mutations) |
 
-## Design Principles
-
-### Idempotent mutations
-`complete_todo` and `remove_todo` always return `success: true` — even if the item was already done or already removed. The agent never needs error recovery.
-
-### Full state in every response
-Every tool returns the complete `todos` array so the agent stays synchronized without extra calls.
-
-### Agent-facing descriptions
-Tool descriptions explain *when* an agent should use each tool, not what parameters to pass.
-
-## Response Format
+## Response format
 
 ```json
 {
@@ -44,25 +32,23 @@ Tool descriptions explain *when* an agent should use each tool, not what paramet
 }
 ```
 
-On error (e.g., not found):
-```json
-{
-  "success": false,
-  "error": "not_found",
-  "todos": [ ... ]
-}
+Errors only happen when the ID genuinely doesn't exist (`not_found`).
+
+## Quick start
+
+```bash
+cp .env.example .env
+# edit .env with your Picoclaw server IP
+./deploy-picoclaw.sh
 ```
 
-## Deployment
+## What deploy does
 
-The `deploy.sh` script:
 1. Copies `mcp-todo.js` to `/usr/local/bin/mcp-todo.js` on the remote
-2. Adds the server to Picoclaw's `tools.mcp.servers` config (idempotent — safe to run multiple times)
+2. Adds the server entry to Picoclaw's `tools.mcp.servers` config (safe to run repeatedly)
 3. Restarts Picoclaw
 
-## Picoclaw Config
-
-After deploy, the following is added to `~/.picoclaw/config.json`:
+## Picoclaw config (added automatically)
 
 ```json
 {
@@ -82,6 +68,7 @@ After deploy, the following is added to `~/.picoclaw/config.json`:
 
 ## Tech
 
-- Pure Node.js, zero npm dependencies
-- MCP stdio transport (JSON-RPC over stdin/stdout)
-- ~100 lines of vanilla JS
+- Vanilla Node.js — `readline` + `JSON` only
+- MCP stdio transport
+- ~100 lines
+- Hosted at [github.com/leshchenko1979/mcp-todo](https://github.com/leshchenko1979/mcp-todo)

@@ -7,7 +7,7 @@ A persistent scratch-pad for AI agents. In-memory todo list served over MCP — 
 ## Benefits
 
 - **Zero footprint** — pure Node.js, no npm packages, no database
-- **Agent-safe mutations** — `complete_todo` and `remove_todo` are idempotent. Calling them on already-done items returns success, not an error. The agent never needs error recovery logic
+- **Agent-safe mutations** — `complete_todos` and `remove_todos` are idempotent. Calling them on already-done or missing items returns success, not an error. The agent never needs error recovery logic
 - **Always synchronized** — every response includes the full todo list. No need for the agent to make a separate `list_todos` call after each mutation
 - **Designed for retries** — if an agent iteration fails mid-task, todos survive. If the whole process restarts, todos are fresh (intentional — the agent should re-plan anyway)
 
@@ -15,10 +15,10 @@ A persistent scratch-pad for AI agents. In-memory todo list served over MCP — 
 
 | Tool | When to use |
 |------|-------------|
-| `add_todo` | Agent needs to remember a step, sub-task, or reminder |
-| `start_todo` | Agent begins working on a tracked item |
-| `complete_todo` | Agent finishes an item |
-| `remove_todo` | Agent discards a no-longer-needed item |
+| `add_todos` | Agent needs to remember steps, sub-tasks, or reminders. Accepts `texts: string[]` and optional `clear_existing: true` to reset the list first |
+| `start_todos` | Agent begins working on one or more items. Accepts `ids: string[]` |
+| `complete_todos` | Agent finishes one or more items. Accepts `ids: string[]` |
+| `remove_todos` | Agent discards one or more no-longer-needed items. Accepts `ids: string[]` |
 | `clear_todos` | Agent resets the list after completing everything |
 | `list_todos` | Agent reviews current state (usually called after mutations) |
 
@@ -27,12 +27,13 @@ A persistent scratch-pad for AI agents. In-memory todo list served over MCP — 
 ```json
 {
   "success": true,
-  "todo": { "id": "123", "text": "Do thing", "done": false, "inProgress": true },
+  "added": [{ "id": "123", "text": "Do thing", "done": false, "inProgress": true }],
+  "results": [{ "id": "123", "found": true }, { "id": "456", "found": false }],
   "todos": [ ... ]
 }
 ```
 
-Errors only happen when the ID genuinely doesn't exist (`not_found`).
+Batch mutations return per-item results — `found: false` or `removed: false` for missing ids — but never fail the whole call.
 
 ## Quick start
 

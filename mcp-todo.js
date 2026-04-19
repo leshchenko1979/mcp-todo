@@ -38,12 +38,12 @@ function handleRequest(req) {
   if (method === 'tools/list') {
     return sendMessage(createResponse(id, {
       tools: [
-        { name: 'add_todo', description: 'Use to record a step, reminder, or sub-task the agent needs to track. The agent creates todos for itself to stay organized during complex tasks.', inputSchema: { type: 'object', properties: { text: { type: 'string', description: 'The todo text' } }, required: ['text'] } },
-        { name: 'start_todo', description: 'Use when the agent begins working on a todo item. Marks it as in-progress so the agent can track what is currently being done.', inputSchema: { type: 'object', properties: { id: { type: 'string', description: 'Todo ID' } }, required: ['id'] } },
-        { name: 'complete_todo', description: 'Use when a todo item is finished. Marks it done=true.', inputSchema: { type: 'object', properties: { id: { type: 'string', description: 'Todo ID' } }, required: ['id'] } },
-        { name: 'remove_todo', description: 'Use to delete a todo the agent no longer needs to track.', inputSchema: { type: 'object', properties: { id: { type: 'string', description: 'Todo ID' } }, required: ['id'] } },
-        { name: 'clear_todos', description: 'Use when the agent has completed all tasks and wants to reset the list.', inputSchema: { type: 'object', properties: {} } },
-        { name: 'list_todos', description: 'Use to review all current todos and their states. The agent should call this after any mutation to stay synchronized.', inputSchema: { type: 'object', properties: {} } }
+        { name: 'add_todos', description: 'Add one or more todos. Use clear_existing to reset the list before adding.', inputSchema: { type: 'object', properties: { texts: { type: 'array', items: { type: 'string' }, description: 'Array of todo texts to add' }, clear_existing: { type: 'boolean', description: 'If true, clear all existing todos before adding new ones' } }, required: ['texts'] } },
+        { name: 'start_todos', description: 'Mark one or more todos as in-progress.', inputSchema: { type: 'object', properties: { ids: { type: 'array', items: { type: 'string' }, description: 'Array of todo IDs' } }, required: ['ids'] } },
+        { name: 'complete_todos', description: 'Mark one or more todos as done.', inputSchema: { type: 'object', properties: { ids: { type: 'array', items: { type: 'string' }, description: 'Array of todo IDs' } }, required: ['ids'] } },
+        { name: 'remove_todos', description: 'Delete one or more todos.', inputSchema: { type: 'object', properties: { ids: { type: 'array', items: { type: 'string' }, description: 'Array of todo IDs' } }, required: ['ids'] } },
+        { name: 'clear_todos', description: 'Clear all todos at once.', inputSchema: { type: 'object', properties: {} } },
+        { name: 'list_todos', description: 'List all current todos and their states.', inputSchema: { type: 'object', properties: {} } }
       ]
     }));
   }
@@ -51,33 +51,48 @@ function handleRequest(req) {
   if (method === 'tools/call') {
     const { name, arguments: args } = params;
 
-    if (name === 'add_todo') {
-      const todo = { id: Date.now().toString(), text: args.text, done: false, inProgress: false };
-      todoStore.push(todo);
-      return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(true, { todo })) }] }));
+    if (name === 'add_todos') {
+      if (args.clear_existing) {
+        todoStore.length = 0;
+      }
+      const added = args.texts.map(text => {
+        const todo = { id: Date.now().toString() + Math.random().toString(36).slice(2, 7), text, done: false, inProgress: false };
+        todoStore.push(todo);
+        return todo;
+      });
+      return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(true, { added })) }] }));
     }
 
-    if (name === 'start_todo') {
-      const todo = todoStore.find(t => t.id === args.id);
-      if (!todo) return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(false, { error: 'not_found' })) }] }));
-      todo.inProgress = true;
-      todo.done = false;
-      return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(true, { todo })) }] }));
+    if (name === 'start_todos') {
+      const results = args.ids.map(id => {
+        const todo = todoStore.find(t => t.id === id);
+        if (!todo) return { id, found: false };
+        todo.inProgress = true;
+        todo.done = false;
+        return { id, found: true };
+      });
+      return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(true, { results })) }] }));
     }
 
-    if (name === 'complete_todo') {
-      const todo = todoStore.find(t => t.id === args.id);
-      if (!todo) return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(false, { error: 'not_found' })) }] }));
-      todo.done = true;
-      todo.inProgress = false;
-      return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(true, { todo })) }] }));
+    if (name === 'complete_todos') {
+      const results = args.ids.map(id => {
+        const todo = todoStore.find(t => t.id === id);
+        if (!todo) return { id, found: false };
+        todo.done = true;
+        todo.inProgress = false;
+        return { id, found: true };
+      });
+      return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(true, { results })) }] }));
     }
 
-    if (name === 'remove_todo') {
-      const idx = todoStore.findIndex(t => t.id === args.id);
-      if (idx === -1) return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(true, { removed: false })) }] }));
-      todoStore.splice(idx, 1);
-      return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(true, { removed: true })) }] }));
+    if (name === 'remove_todos') {
+      const results = args.ids.map(id => {
+        const idx = todoStore.findIndex(t => t.id === id);
+        if (idx === -1) return { id, removed: false };
+        todoStore.splice(idx, 1);
+        return { id, removed: true };
+      });
+      return sendMessage(createResponse(id, { content: [{ type: 'text', text: JSON.stringify(res(true, { results })) }] }));
     }
 
     if (name === 'clear_todos') {
